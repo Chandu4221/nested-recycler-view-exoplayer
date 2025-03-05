@@ -79,7 +79,6 @@ class VideoAdapter(
             }
         }
 
-
         fun completeVisibleItem(position: Int) {
             Log.d(TAG, "COMPLETE_VISIBLE_ITEM $position ")
             Log.d(TAG, "BINDING_ADAPTER_POSITION $bindingAdapterPosition  ")
@@ -146,21 +145,13 @@ class VideoAdapter(
              ***************/
         }
 
-//        fun releasePlayer() {
-//            exoPlayer?.let {
-//                if (it == playerPool.activeRunningPlayer) {
-//                    playerPool.setActivePlayer(null)
-//                } else {
-//                    playerPool.releasePlayer(it)
-//                }
-//                exoPlayer = null
-//                binding.videoPlayerView.player = null
-//            }
-//        }
-
         fun releasePlayer() {
             exoPlayer?.let {
-                playerPool.releasePlayer(it)
+                if (it == playerPool.activeRunningPlayer) {
+                    playerPool.setActivePlayer(null)
+                } else {
+                    playerPool.releasePlayer(it)
+                }
                 exoPlayer = null
                 binding.videoPlayerView.player = null
             }

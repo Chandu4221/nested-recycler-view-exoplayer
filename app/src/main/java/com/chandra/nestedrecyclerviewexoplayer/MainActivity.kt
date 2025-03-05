@@ -43,70 +43,12 @@ class MainActivity : AppCompatActivity() {
                 index = index
             )
         })
+    }
 
-
-        /************
-        binding.videoRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-        override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-        super.onScrollStateChanged(recyclerView, newState)
-
-        // FULLY VISIBLE ITEM
-        val firstVisibleItemPosition =
-        videoLayoutManager.findFirstCompletelyVisibleItemPosition()
-        val lastVisibleItemPosition =
-        videoLayoutManager.findLastCompletelyVisibleItemPosition()
-        val totalItemCount = videoLayoutManager.itemCount
-
-        Log.d(TAG, "FIRST $firstVisibleItemPosition LAST $lastVisibleItemPosition ")
-
-        // Ensure firstVisibleItemPosition is valid
-        //                if (firstVisibleItemPosition != RecyclerView.NO_POSITION) {
-        //                    val viewHolder =
-        //                        recyclerView.findViewHolderForAdapterPosition(firstVisibleItemPosition)
-        //
-        //                    if (viewHolder is VideoAdapter.ViewHolder) {
-        //                        // Now it's safe to use viewHolder
-        //                        Log.d(TAG, "ViewHolder found for position: $firstVisibleItemPosition")
-        //                    } else {
-        //                        Log.d(TAG, "ViewHolder is null or not of type VideoAdapter.ViewHolder")
-        //                    }
-        //                }
-
-        if (firstVisibleItemPosition == lastVisibleItemPosition && firstVisibleItemPosition != RecyclerView.NO_POSITION) {
-        val viewHolder =
-        recyclerView.findViewHolderForAdapterPosition(firstVisibleItemPosition) as VideoAdapter.ViewHolder
-        viewHolder.completeVisibleItem(firstVisibleItemPosition)
-        Log.d(TAG, "VIEW HOLDER VISIBLE AT : $firstVisibleItemPosition")
-        }
-        //
-        //                when {
-        //                    firstVisibleItemPosition == 0 -> {
-        //                        Log.d(TAG, "First item is fully visible")
-        //                        val viewHolder =
-        //                            recyclerView.findViewHolderForAdapterPosition(firstVisibleItemPosition) as VideoAdapter.ViewHolder
-        //                        viewHolder.completeVisibleItem(firstVisibleItemPosition)
-        //
-        //                    }
-        //
-        //                    lastVisibleItemPosition == totalItemCount - 1 -> {
-        //                        Log.d(TAG, "Last item is fully visible")
-        //                        val viewHolder =
-        //                            recyclerView.findViewHolderForAdapterPosition(lastVisibleItemPosition) as VideoAdapter.ViewHolder
-        //                        viewHolder.completeVisibleItem(lastVisibleItemPosition)
-        //
-        //                    }
-        //
-        //                    firstVisibleItemPosition > 0 && lastVisibleItemPosition < totalItemCount - 1 -> {
-        //                        Log.d(TAG, "Middle items are visible")
-        //                        val viewHolder =
-        //                            recyclerView.findViewHolderForAdapterPosition(firstVisibleItemPosition) as VideoAdapter.ViewHolder
-        //                        viewHolder.completeVisibleItem(firstVisibleItemPosition)
-        //
-        //                    }
-        //                }
-        }
-        })
-         ************/
+    override fun onStop() {
+        super.onStop()
+        exoPlayerPool.releaseAllPlayers()
+        Log.d(TAG, "ON_STOP")
     }
 
     override fun onDestroy() {
