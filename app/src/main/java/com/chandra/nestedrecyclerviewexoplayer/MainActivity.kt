@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.chandra.nestedrecyclerviewexoplayer.databinding.ActivityMainBinding
-import com.chandra.nestedrecyclerviewexoplayer.videoAdapter.VideoAdapter
+import com.chandra.nestedrecyclerviewexoplayer.videoAdapter.VideoAdapter2
 import com.chandra.nestedrecyclerviewexoplayer.videoAdapter.VideoItem
 
 class MainActivity : AppCompatActivity() {
@@ -15,45 +15,29 @@ class MainActivity : AppCompatActivity() {
 
     // VIEW BINDING
     private lateinit var binding: ActivityMainBinding
-    private lateinit var adapter: VideoAdapter
-    private lateinit var exoPlayerPool: ExoPlayerManager
+    private lateinit var adapter: VideoAdapter2
+    private lateinit var playerPool: ExoPlayerPool<Int>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d(TAG, "ON_CREATE")
-        // EDGE TO EDGE SUPPORT
-        // enableEdgeToEdge()
-
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        exoPlayerPool = ExoPlayerManager(context = this, poolSize = 1)
+        // CREATE PLAYER POOL
+        playerPool = ExoPlayerPool(context = this, poolSize = 3)
+
         // CREATE THE ADAPTER
-        adapter =
-            VideoAdapter(
-                playerPool = exoPlayerPool,
-                items = emptyList()
-            )
+        adapter = VideoAdapter2(items = emptyList(), playerPool = playerPool)
         binding.videoRecyclerView.adapter = adapter
         val videoLayoutManager = LinearLayoutManager(this)
         binding.videoRecyclerView.layoutManager = videoLayoutManager
         adapter.update(newItems = SampleVideoLinks.links.mapIndexed { index, s ->
-            VideoItem(
-                link = s,
-                index = index
-            )
+            VideoItem(link = s, index = index)
         })
-    }
-
-    override fun onStop() {
-        super.onStop()
-        exoPlayerPool.releaseAllPlayers()
-        Log.d(TAG, "ON_STOP")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        exoPlayerPool.shutdown()
-        Log.d(TAG, "ON_DESTROY")
+        playerPool.releaseAllPlayers()
     }
 }
