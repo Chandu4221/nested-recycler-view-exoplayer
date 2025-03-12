@@ -47,7 +47,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
 
     implementation("androidx.recyclerview:recyclerview:1.4.0")
-
+    implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("androidx.media3:media3-common:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("androidx.media3:media3-exoplayer:1.5.1")

@@ -1,11 +1,11 @@
-package com.chandra.nestedrecyclerviewexoplayer
+package com.chandra.nestedrecyclerviewexoplayer.managers.exoplayerManager
 
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 
-class ExoPlayerPool<T>(
+class ExoPlayerManager<T>(
     private val context: Context,
     private val poolSize: Int = 3,
     private val maxPoolSize: Int = 5
@@ -22,7 +22,6 @@ class ExoPlayerPool<T>(
 
     private val totalPlayers: Int
         get() = assignedPlayers.size + availablePlayers.size + if (isReleased) 0 else 1
-
 
     init {
         require(poolSize > 0) { "Pool size must be greater than 0" }
@@ -79,6 +78,26 @@ class ExoPlayerPool<T>(
         availablePlayers.forEach { it.release() }
         assignedPlayers.clear()
         availablePlayers.clear()
+    }
+
+    // NEW FUNCTION TO PAUSE ALL ACTIVE PLAYERS
+    @Synchronized
+    fun pauseAllPlayers() {
+        if (isReleased) return
+
+        // Pause all assigned players
+        assignedPlayers.values.forEach { player ->
+            if (player.isPlaying) {
+                player.pause()
+            }
+        }
+
+        // Pause any available players that might be playing
+        availablePlayers.forEach { player ->
+            if (player.isPlaying) {
+                player.pause()
+            }
+        }
     }
 
     private fun getReusablePlayer(): ExoPlayer? {

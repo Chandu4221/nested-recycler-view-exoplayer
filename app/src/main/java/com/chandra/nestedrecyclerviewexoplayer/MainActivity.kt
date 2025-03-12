@@ -1,12 +1,13 @@
 package com.chandra.nestedrecyclerviewexoplayer
 
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.chandra.nestedrecyclerviewexoplayer.adapters.postAdapter.PostAdapter
 import com.chandra.nestedrecyclerviewexoplayer.databinding.ActivityMainBinding
-import com.chandra.nestedrecyclerviewexoplayer.videoAdapter.VideoAdapter2
-import com.chandra.nestedrecyclerviewexoplayer.videoAdapter.VideoItem
+import com.chandra.nestedrecyclerviewexoplayer.managers.exoplayerManager.ExoPlayerManager
+import com.chandra.nestedrecyclerviewexoplayer.managers.glideImageManager.GlideImageManager
+import com.chandra.nestedrecyclerviewexoplayer.sampleData.SampleData
 
 class MainActivity : AppCompatActivity() {
 
@@ -15,8 +16,10 @@ class MainActivity : AppCompatActivity() {
 
     // VIEW BINDING
     private lateinit var binding: ActivityMainBinding
-    private lateinit var adapter: VideoAdapter2
-    private lateinit var playerPool: ExoPlayerPool<Int>
+    private lateinit var exoPlayerManager: ExoPlayerManager<String>
+
+    private lateinit var postAdapter: PostAdapter
+    private val glideImageManager = GlideImageManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,20 +27,27 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // CREATE PLAYER POOL
-        playerPool = ExoPlayerPool(context = this, poolSize = 3)
+        exoPlayerManager = ExoPlayerManager(context = this, poolSize = 3)
 
         // CREATE THE ADAPTER
-        adapter = VideoAdapter2(items = emptyList(), playerPool = playerPool)
-        binding.videoRecyclerView.adapter = adapter
-        val videoLayoutManager = LinearLayoutManager(this)
-        binding.videoRecyclerView.layoutManager = videoLayoutManager
-        adapter.update(newItems = SampleVideoLinks.links.mapIndexed { index, s ->
-            VideoItem(link = s, index = index)
-        })
+        postAdapter = PostAdapter(
+            items = emptyList(),
+            glideImageManager = glideImageManager,
+            exoPlayerManager = exoPlayerManager
+        )
+        binding.postRecyclerView.adapter = postAdapter
+        val postLayoutManager = LinearLayoutManager(this)
+        binding.postRecyclerView.layoutManager = postLayoutManager
+        postAdapter.update(newItems = SampleData.posts)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        exoPlayerManager.pauseAllPlayers()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        playerPool.releaseAllPlayers()
+        exoPlayerManager.releaseAllPlayers()
     }
 }
