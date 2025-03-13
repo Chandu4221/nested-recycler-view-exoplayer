@@ -207,16 +207,16 @@ class PostAdapter(
                 )
                 addOnScrollListener(postContentScrollListener)
             }
-            updateActiveItemIndex(position = 0)
         }
 
         fun bindContentAdapter(postItem: PostItem) {
             contentAdapter.update(newItems = postItem.content)
+            updateActiveItemIndex(position = 0)
         }
 
         // FUNCTION TO UPDATE THE ACTIVE ITEM
         private fun updateActiveItemIndex(position: Int) {
-            val item = items[position]
+            val item = items[bindingAdapterPosition]
             val contentItemsSize = item.content.size
             if (contentItemsSize > 1) { // contentAdapter.itemCount > 1
                 postItemLayoutBinding.postCounter.visibility = View.VISIBLE
