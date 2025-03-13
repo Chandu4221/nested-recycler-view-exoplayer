@@ -1,6 +1,8 @@
 package com.chandra.nestedrecyclerviewexoplayer.adapters.postContentAdapter
 
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -177,6 +179,37 @@ class PostContentAdapter(
         init {
             // DISABLE DEFAULT CONTROLS
             postContentVideoItemBinding.postContentVideoView.useController = false
+            // MUTE CLICK LISTENER
+            postContentVideoItemBinding.mutePlayerBtn.setOnClickListener {
+                exoPlayerManager.muteAllPlayers()
+            }
+            // UN MUTE CLICK LISTENER
+            postContentVideoItemBinding.unMutePlayerBtn.setOnClickListener {
+                exoPlayerManager.unMuteAllPlayers()
+            }
+            // MUTE STATE LISTENER
+            exoPlayerManager.setMuteStateListener { isMuted ->
+                updateMuteButtonVisibility()
+            }
+            updateMuteButtonVisibility()
+        }
+
+        private val handler = Handler(Looper.getMainLooper())
+        private val updateTimeRunnable = object : Runnable {
+            override fun run() {
+                updateRemainingTime()
+                handler.postDelayed(this, 1000)
+            }
+        }
+
+        private fun updateRemainingTime() {
+            val player = postContentVideoItemBinding.postContentVideoView.player ?: return
+            if (player.duration > 0) {
+                val remainingTime = player.duration - player.currentPosition
+                val remainingSeconds = (remainingTime / 1000).toInt()
+                postContentVideoItemBinding.durationTextView.text =
+                    String.format("%02d:%02d", remainingSeconds / 60, remainingSeconds % 60)
+            }
         }
 
         fun bindPlayer(position: Int) {
@@ -189,10 +222,12 @@ class PostContentAdapter(
 
         fun startPlayback() {
             exoPlayer?.play()
+            handler.post(updateTimeRunnable)
         }
 
         fun pausePlayback() {
             exoPlayer?.pause()
+            handler.removeCallbacks(updateTimeRunnable)
         }
 
         fun unbindPlayer(position: Int) {
@@ -201,6 +236,14 @@ class PostContentAdapter(
             postContentVideoItemBinding.postContentVideoView.player = null
             exoPlayerManager.releaseResource(id = item.id)
             exoPlayer = null
+        }
+
+        private fun updateMuteButtonVisibility() {
+            val isMuted = exoPlayerManager.isMuted()
+            postContentVideoItemBinding.mutePlayerBtn.visibility =
+                if (isMuted) View.GONE else View.VISIBLE
+            postContentVideoItemBinding.unMutePlayerBtn.visibility =
+                if (isMuted) View.VISIBLE else View.GONE
         }
 
     }

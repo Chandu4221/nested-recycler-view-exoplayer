@@ -216,10 +216,12 @@ class PostAdapter(
 
         // FUNCTION TO UPDATE THE ACTIVE ITEM
         private fun updateActiveItemIndex(position: Int) {
-            if (contentAdapter.itemCount > 1) {
+            val item = items[position]
+            val contentItemsSize = item.content.size
+            if (contentItemsSize > 1) { // contentAdapter.itemCount > 1
                 postItemLayoutBinding.postCounter.visibility = View.VISIBLE
                 postItemLayoutBinding.postCounter.text =
-                    "${position + 1}/${contentAdapter.itemCount}"
+                    "${position + 1}/${contentItemsSize}"
             } else {
                 postItemLayoutBinding.postCounter.visibility = View.GONE
             }

@@ -14,6 +14,9 @@ class ExoPlayerManager<T>(
     private val assignedPlayers = HashMap<T, ExoPlayer>()
     private var isReleased = false
 
+    private var isMuted = false
+    private var muteStateListener: ((Boolean) -> Unit)? = null
+
     private val availablePlayerCount: Int
         get() = availablePlayers.size
 
@@ -30,6 +33,14 @@ class ExoPlayerManager<T>(
             availablePlayers.add(createNewPlayer())
         }
     }
+
+    fun setMuteStateListener(listener: (Boolean) -> Unit) {
+        muteStateListener = listener
+        muteStateListener?.invoke(isMuted)
+    }
+
+    fun isMuted(): Boolean = isMuted
+
 
     @Synchronized
     fun pool(id: T, mediaItem: MediaItem): ExoPlayer {
@@ -100,6 +111,51 @@ class ExoPlayerManager<T>(
         }
     }
 
+
+    // NEW FUNCTION TO MUTE ALL ACTIVE PLAYERS
+    @Synchronized
+    fun muteAllPlayers() {
+        if (isReleased) return
+
+        // MUTE ALL ASSIGNED PLAYERS
+        assignedPlayers.values.forEach { player ->
+            player.volume = 0f  // 0f is muted, 1f is full volume
+        }
+
+        // MUTE ANY AVAILABLE PLAYERS
+        availablePlayers.forEach { player ->
+            player.volume = 0f
+        }
+
+        // SET IS MUTED STATUS
+        isMuted = true
+
+        // INVOKE THE LISTENER
+        muteStateListener?.invoke(isMuted)
+    }
+
+    // NEW FUNCTION TO UN MUTE ALL ACTIVE PLAYERS
+    @Synchronized
+    fun unMuteAllPlayers() {
+        if (isReleased) return
+
+        // UN MUTE ALL ASSIGNED PLAYERS
+        assignedPlayers.values.forEach { player ->
+            player.volume = 1f  // Restore to full volume
+        }
+
+        // UN MUTED ANY AVAILABLE PLAYERS
+        availablePlayers.forEach { player ->
+            player.volume = 1f
+        }
+
+        // UN SET IS MUTED STATE
+        isMuted = false
+
+        // INVOKE THE LISTENER
+        muteStateListener?.invoke(isMuted)
+    }
+
     private fun getReusablePlayer(): ExoPlayer? {
         return availablePlayers.firstOrNull { !it.isPlaying }?.also {
             availablePlayers.remove(it)
@@ -119,6 +175,7 @@ class ExoPlayerManager<T>(
     private fun createNewPlayer(): ExoPlayer {
         return ExoPlayer.Builder(context).build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
+            volume = if (isMuted) 0f else 1f
         }
     }
 
