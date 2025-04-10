@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // CREATE PLAYER POOL
-        exoPlayerManager = ExoPlayerManager(context = this, poolSize = 3)
+        exoPlayerManager = ExoPlayerManager(context = this, initialPoolSize = 3, maxPoolSize = 5)
 
         // CREATE THE ADAPTER
         postAdapter = PostAdapter(

@@ -2,191 +2,165 @@ package com.chandra.nestedrecyclerviewexoplayer.managers.exoplayerManager
 
 import android.content.Context
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ExoPlayerManager<T>(
     private val context: Context,
-    private val poolSize: Int = 3,
+    private val initialPoolSize: Int = 3,
     private val maxPoolSize: Int = 5
 ) {
-    private val availablePlayers = ArrayDeque<ExoPlayer>(poolSize)
-    private val assignedPlayers = HashMap<T, ExoPlayer>()
-    private var isReleased = false
-
-    private var isMuted = false
-    private var muteStateListener: ((Boolean) -> Unit)? = null
-
-    private val availablePlayerCount: Int
-        get() = availablePlayers.size
-
-    private val totalActivePlayers: Int
-        get() = assignedPlayers.size + availablePlayers.size
-
-    private val totalPlayers: Int
-        get() = assignedPlayers.size + availablePlayers.size + if (isReleased) 0 else 1
 
     init {
-        require(poolSize > 0) { "Pool size must be greater than 0" }
-        require(maxPoolSize >= poolSize) { "Max pool size must be >= initial pool size" }
-        repeat(poolSize) {
+        // MAKE SURE INITIAL POOL SIZE IS NOT GREATER THAN MAX POOL SIZE AND POSITIVE
+        require(initialPoolSize > 0) { "initialPoolSize must be positive." }
+        require(maxPoolSize >= initialPoolSize) { "maxPoolSize must be >= initialPoolSize." }
+    }
+
+    // CREATE LIST OF AVAILABLE PLAYERS
+    private val availablePlayers = ConcurrentLinkedQueue<ExoPlayerWrapper>()
+
+    // CREATE LIST OF IN USE PLAYERS
+    private val inUsePlayers = ConcurrentHashMap<T, ExoPlayerWrapper>()
+
+    // FLAG TO PREVENT OPERATIONS AFTER THE POOL IS DESTROYED
+    private var isPoolReleased = AtomicBoolean(false)
+
+    // INITIALIZE THE PLAYERS
+    init {
+        repeat(initialPoolSize) {
             availablePlayers.add(createNewPlayer())
         }
     }
 
-    fun setMuteStateListener(listener: (Boolean) -> Unit) {
-        muteStateListener = listener
-        muteStateListener?.invoke(isMuted)
+    // CREATE NEW PLAYER INSTANCE
+    private fun createNewPlayer(): ExoPlayerWrapper {
+        return ExoPlayerWrapper(context.applicationContext)
     }
 
-    fun isMuted(): Boolean = isMuted
-
-
+    // ACQUIRE PLAYER
     @Synchronized
-    fun pool(id: T, mediaItem: MediaItem): ExoPlayer {
-        if (isReleased) {
-            throw IllegalStateException("Pool is released")
-        }
-        // IF ALREADY ASSIGNED, RETURN THE PLAYER
-        assignedPlayers[id]?.let { return it }
+    fun acquirePlayer(playerId: T, mediaItem: MediaItem): ExoPlayerWrapper? {
+        // IF POOL IS RELEASED
+        if (isPoolReleased.get()) return null
 
-        // ACQUIRE PLAYER FROM THE POOL
-        val player = getReusablePlayer() ?: acquireNewPlayer()
-        assignedPlayers[id] = player
-
-        player.apply {
-            setMediaItem(mediaItem)
-            prepare()
+        // IF PLAYER IS PRESENT IN USE PLAYERS RETURN THAT PLAYER
+        if (inUsePlayers.containsKey(playerId)) {
+            return inUsePlayers[playerId]
         }
 
-        return player
-    }
+        var acquiredPlayer: ExoPlayerWrapper?
 
-    @Synchronized
-    fun releaseResource(id: T) {
-        if (isReleased) return
+        // GET PLAYER FROM AVAILABLE PLAYERS AND RETURN
+        acquiredPlayer = availablePlayers.poll()
 
-        assignedPlayers.remove(id)?.let { player ->
-            player.apply {
-                stop()
-                clearMediaItems()
-                seekTo(0)
-                playWhenReady = false
-            }
-            if (availablePlayers.size < maxPoolSize) {
-                availablePlayers.add(player)
-            } else {
-                player.release()
+        // IF THERE ARE NO AVAILABLE PLAYERS AND POOL IS NOT FULL
+        if (acquiredPlayer == null) {
+            if (inUsePlayers.size + availablePlayers.size < maxPoolSize) {
+                acquiredPlayer = createNewPlayer()
+                availablePlayers.add(acquiredPlayer)
             }
         }
+
+        // IF THERE IS A PLAYER AVAILABLE
+        if (acquiredPlayer != null) {
+            acquiredPlayer.setMediaItem(mediaItem)
+            acquiredPlayer.prepare()
+            inUsePlayers[playerId] = acquiredPlayer
+            return acquiredPlayer
+        }
+
+        return null
     }
 
+    // RELEASE PLAYER AND ADD IT TO AVAILABLE PLAYERS
+    @Synchronized
+    fun releasePlayer(playerId: T): Boolean {
+        // IF POOL IS RELEASED
+        if (isPoolReleased.get()) return false
+
+        // REMOVE THE PLAYER FORM THE IN USE PLAYERS
+        // IF NOT FOUND RETURN FALSE
+        val releasedPlayerWrapper = inUsePlayers.remove(playerId) ?: return false
+
+        // CHECK IF THE AVAILABLE PLAYER POOL IS NOT FULL
+        if (availablePlayers.size < maxPoolSize) {
+            releasedPlayerWrapper.stopAndReset()
+            availablePlayers.offer(releasedPlayerWrapper)
+        } else {
+            releasedPlayerWrapper.release()
+        }
+        return true
+    }
+
+    // RELEASE ALL PLAYERS
     @Synchronized
     fun releaseAllPlayers() {
-        if (isReleased) return
-        isReleased = true
-        assignedPlayers.values.forEach { it.release() }
-        availablePlayers.forEach { it.release() }
-        assignedPlayers.clear()
+        // IF POOL IS RELEASED RETURN
+        if (isPoolReleased.get()) return
+        // RELEASE ALL AVAILABLE PLAYERS
+        availablePlayers.forEach { wrapper -> wrapper.release() }
+        // CLEAR AVAILABLE PLAYERS
         availablePlayers.clear()
+        // RELEASE ALL IN USE PLAYERS
+        inUsePlayers.values.forEach { wrapper -> wrapper.release() }
+        // CLEAR IN USE PLAYERS
+        inUsePlayers.clear()
+        // SET POOL RELEASED FLAG TO TRUE
+        isPoolReleased = AtomicBoolean(true)
     }
 
-    // NEW FUNCTION TO PAUSE ALL ACTIVE PLAYERS
+    // PAUSE ALL PLAYERS
     @Synchronized
     fun pauseAllPlayers() {
-        if (isReleased) return
-
-        // Pause all assigned players
-        assignedPlayers.values.forEach { player ->
-            if (player.isPlaying) {
-                player.pause()
-            }
-        }
-
-        // Pause any available players that might be playing
-        availablePlayers.forEach { player ->
-            if (player.isPlaying) {
-                player.pause()
-            }
-        }
+        // IF POOL IS RELEASED RETURN
+        if (isPoolReleased.get()) return
+        // PAUSE ALL AVAILABLE PLAYERS
+        availablePlayers.forEach { wrapper -> wrapper.pause() }
+        // PAUSE ALL IN USE PLAYERS
+        inUsePlayers.values.forEach { wrapper -> wrapper.pause() }
     }
 
-
-    // NEW FUNCTION TO MUTE ALL ACTIVE PLAYERS
+    // MUTE ALL PLAYERS
     @Synchronized
     fun muteAllPlayers() {
-        if (isReleased) return
-
-        // MUTE ALL ASSIGNED PLAYERS
-        assignedPlayers.values.forEach { player ->
-            player.volume = 0f  // 0f is muted, 1f is full volume
-        }
-
-        // MUTE ANY AVAILABLE PLAYERS
-        availablePlayers.forEach { player ->
-            player.volume = 0f
-        }
-
-        // SET IS MUTED STATUS
-        isMuted = true
-
-        // INVOKE THE LISTENER
-        muteStateListener?.invoke(isMuted)
+        // IF POOL IS RELEASED
+        if (isPoolReleased.get()) return
+        // MUTE ALL AVAILABLE PLAYERS
+        (availablePlayers + inUsePlayers.values).forEach { wrapper -> wrapper.setIsMuted(muted = true) }
     }
 
-    // NEW FUNCTION TO UN MUTE ALL ACTIVE PLAYERS
+    // UN MUTE ALL PLAYERS
     @Synchronized
     fun unMuteAllPlayers() {
-        if (isReleased) return
-
-        // UN MUTE ALL ASSIGNED PLAYERS
-        assignedPlayers.values.forEach { player ->
-            player.volume = 1f  // Restore to full volume
-        }
-
-        // UN MUTED ANY AVAILABLE PLAYERS
-        availablePlayers.forEach { player ->
-            player.volume = 1f
-        }
-
-        // UN SET IS MUTED STATE
-        isMuted = false
-
-        // INVOKE THE LISTENER
-        muteStateListener?.invoke(isMuted)
+        // IF POOL IS RELEASED
+        if (isPoolReleased.get()) return
+        // UN MUTE ALL AVAILABLE PLAYERS
+        (availablePlayers + inUsePlayers.values).forEach { wrapper -> wrapper.setIsMuted(muted = false) }
     }
 
-    private fun getReusablePlayer(): ExoPlayer? {
-        return availablePlayers.firstOrNull { !it.isPlaying }?.also {
-            availablePlayers.remove(it)
-        }
-    }
+    // ARE ALL PLAYERS MUTED
+    fun areAllPlayersMuted(): Boolean {
+        // IF POOL IS RELEASED
+        if (isPoolReleased.get()) return false
+        val allPlayers = availablePlayers + inUsePlayers.values
 
-    private fun acquireNewPlayer(): ExoPlayer {
-        return availablePlayers.removeFirstOrNull() ?: run {
-            if (assignedPlayers.size + availablePlayers.size < maxPoolSize) {
-                createNewPlayer()
-            } else {
-                throw IllegalStateException("Player pool exhausted")
-            }
-        }
-    }
+        if (allPlayers.isEmpty()) return true
 
-    private fun createNewPlayer(): ExoPlayer {
-        return ExoPlayer.Builder(context).build().apply {
-            repeatMode = Player.REPEAT_MODE_ONE
-            volume = if (isMuted) 0f else 1f
-        }
+        return allPlayers.all { it.isMuted }
     }
 
     // LOG STATS
     fun logStats(): String {
         return """
-            Available Players: ${availablePlayerCount},
-            Total Active Players: $totalActivePlayers
-            Total Players: $totalPlayers
-            Available Players: ${availablePlayers.map { it.hashCode() }}
-            Assigned Players: ${assignedPlayers.map { it.key }}
-            """.trimIndent()
+            POOL RELEASED: ${isPoolReleased.get()}
+            AVAILABLE PLAYER SIZE: ${availablePlayers.size}
+            IN USE PLAYER SIZE: ${inUsePlayers.size}
+            TOTAL PLAYERS SIZE: ${availablePlayers.size + inUsePlayers.size}
+            ----------------------------------------------------------------
+            AVAILABLE PLAYERS: ${availablePlayers.map { it.hashCode() }}
+            IN USE PLAYERS: ${inUsePlayers.map { it.key }}
+        """
     }
 }

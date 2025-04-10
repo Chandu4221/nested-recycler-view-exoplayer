@@ -25,7 +25,7 @@ class PostAdapter(
 
     // SCROLL LISTENER
     private val postAdapterScrollListener = object : RecyclerView.OnScrollListener() {
-        private val visibilityThreshold: Float = 0.70f // 70% visibility
+        private val visibilityThreshold: Float = 0.70f
         private fun checkVisibleItems(recyclerView: RecyclerView) {
             for (i in 0 until recyclerView.childCount) {
                 val child = recyclerView.getChildAt(i)
@@ -41,7 +41,6 @@ class PostAdapter(
                             if (isVisible) {
                                 when (childViewHolder) {
                                     is PostContentAdapter.PostContentImageViewHolder -> {}
-
                                     is PostContentAdapter.PostContentVideoViewHolder -> {
                                         childViewHolder.startPlayback()
                                     }
@@ -63,16 +62,10 @@ class PostAdapter(
         private fun isViewAtLeastPercentVisible(view: View, percent: Float): Boolean {
             val visibleRect = Rect()
             view.getLocalVisibleRect(visibleRect)
-
             val viewHeight = view.height
             val visibleHeight = visibleRect.height().toFloat()
 
             return visibleHeight / viewHeight >= percent
-        }
-
-        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-            super.onScrolled(recyclerView, dx, dy)
-            // checkVisibleItems(recyclerView)
         }
 
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
@@ -138,11 +131,12 @@ class PostAdapter(
         val parentPosition = holder.bindingAdapterPosition
         val childViewHolder = holder.getChildViewHolder()
         val childPosition = childViewHolder?.bindingAdapterPosition
-        Log.d(TAG, "onViewAttachedToWindow: PARENT_POS $parentPosition CHILD_POS $childPosition")
         when (childViewHolder) {
             is PostContentAdapter.PostContentImageViewHolder -> {}
             is PostContentAdapter.PostContentVideoViewHolder -> {
-                childViewHolder.bindPlayer(childPosition!!)
+                if (childPosition != null && childPosition != RecyclerView.NO_POSITION) {
+                    childViewHolder.bindPlayer(childPosition)
+                }
             }
         }
     }
@@ -152,14 +146,14 @@ class PostAdapter(
         val parentPosition = holder.bindingAdapterPosition
         val childViewHolder = holder.getChildViewHolder()
         val childPosition = childViewHolder?.bindingAdapterPosition
-        Log.d(TAG, "onViewAttachedToWindow: PARENT_POS $parentPosition CHILD_POS $childPosition")
         when (childViewHolder) {
             is PostContentAdapter.PostContentImageViewHolder -> {}
             is PostContentAdapter.PostContentVideoViewHolder -> {
-                childViewHolder.unbindPlayer(childPosition!!)
+                if (childPosition != null && childPosition != RecyclerView.NO_POSITION) {
+                    childViewHolder.unbindPlayer(childPosition)
+                }
             }
         }
-
     }
 
     // UPDATE THE POST ITEMS ADAPTER
@@ -169,7 +163,6 @@ class PostAdapter(
         items = newItems
         diffResult.dispatchUpdatesTo(this)
     }
-
 
     // VIEW HOLDER CLASS
     inner class PostViewHolder(val postItemLayoutBinding: PostItemLayoutBinding) :

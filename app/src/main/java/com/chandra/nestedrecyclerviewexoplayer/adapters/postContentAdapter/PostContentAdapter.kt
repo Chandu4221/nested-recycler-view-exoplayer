@@ -1,6 +1,5 @@
 package com.chandra.nestedrecyclerviewexoplayer.adapters.postContentAdapter
 
-import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -10,6 +9,7 @@ import android.view.ViewGroup
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.chandra.nestedrecyclerviewexoplayer.databinding.PostContentImageItemBinding
 import com.chandra.nestedrecyclerviewexoplayer.databinding.PostContentVideoItemBinding
@@ -27,40 +27,35 @@ class PostContentAdapter(
 
     // SCROLL LISTENER
     private val postContentScrollListener = object : RecyclerView.OnScrollListener() {
-        private val visibilityThreshold: Float = 0.70f // 70% visibility
         private fun checkVisibleItems(recyclerView: RecyclerView) {
-            for (i in 0 until recyclerView.childCount) {
-                val child = recyclerView.getChildAt(i)
-                val position = recyclerView.getChildAdapterPosition(child)
-
-                if (position != RecyclerView.NO_POSITION) {
-                    val viewHolder = recyclerView.findViewHolderForAdapterPosition(position)
-                    when (viewHolder) {
-                        is PostContentImageViewHolder -> {}
-
-                        is PostContentVideoViewHolder -> {
-                            if (isViewAtLeastPercentVisible(child, visibilityThreshold)) {
-                                viewHolder.startPlayback()
-                            } else {
-                                viewHolder.pausePlayback()
-                            }
+            // LAYOUT MANAGER
+            val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
+            // FIRST COMPLETE VISIBLE ITEM
+            val firstVisibleItemPosition =
+                layoutManager?.findFirstCompletelyVisibleItemPosition()
+            val lastVisibleItemPosition =
+                layoutManager?.findLastCompletelyVisibleItemPosition()
+            firstVisibleItemPosition?.let {
+                when (val viewHolder = recyclerView.findViewHolderForAdapterPosition(it)) {
+                    is PostContentImageViewHolder -> {}
+                    is PostContentVideoViewHolder -> {
+                        if (it == lastVisibleItemPosition) {
+                            viewHolder.startPlayback()
+                        } else {
+                            viewHolder.pausePlayback()
                         }
                     }
                 }
             }
         }
 
-        private fun isViewAtLeastPercentVisible(view: View, percent: Float): Boolean {
-            val visibleRect = Rect()
-            view.getLocalVisibleRect(visibleRect)
-            val viewWidth = view.width
-            val visibleWidth = visibleRect.width().toFloat()
-            return visibleWidth / viewWidth >= percent
-        }
-
-        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-            super.onScrolled(recyclerView, dx, dy)
-            checkVisibleItems(recyclerView)
+        override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+            super.onScrollStateChanged(recyclerView, newState)
+            when (newState) {
+                RecyclerView.SCROLL_STATE_IDLE -> {
+                    checkVisibleItems(recyclerView)
+                }
+            }
         }
     }
 
@@ -93,6 +88,7 @@ class PostContentAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        Log.d(TAG, "${holder.bindingAdapterPosition}")
         return when (val item = items[position]) {
             is PostContentItem.Image -> {
                 val postContentImageViewHolder = holder as PostContentImageViewHolder
@@ -163,7 +159,7 @@ class PostContentAdapter(
 
         fun bind(position: Int) {
             val item = items[position] as PostContentItem.Image
-            Log.d(TAG, "IMAGE_URL ${item.imageUrl}")
+            // Log.d(TAG, "IMAGE_URL ${item.imageUrl}")
             // LOAD THE IMAGE URL
             glideImageManager.loadImage(
                 item.imageUrl,
@@ -182,13 +178,11 @@ class PostContentAdapter(
             // MUTE CLICK LISTENER
             postContentVideoItemBinding.mutePlayerBtn.setOnClickListener {
                 exoPlayerManager.muteAllPlayers()
+                updateMuteButtonVisibility()
             }
             // UN MUTE CLICK LISTENER
             postContentVideoItemBinding.unMutePlayerBtn.setOnClickListener {
                 exoPlayerManager.unMuteAllPlayers()
-            }
-            // MUTE STATE LISTENER
-            exoPlayerManager.setMuteStateListener { isMuted ->
                 updateMuteButtonVisibility()
             }
             updateMuteButtonVisibility()
@@ -214,9 +208,10 @@ class PostContentAdapter(
 
         fun bindPlayer(position: Int) {
             val item = items[position] as PostContentItem.Video
-            Log.d(TAG, "VIDEO_URL ${item.videoUrl}")
+            // Log.d(TAG, "VIDEO_URL ${item.videoUrl}")
             val mediaItem = MediaItem.fromUri(item.videoUrl)
-            exoPlayer = exoPlayerManager.pool(id = item.id, mediaItem = mediaItem)
+            exoPlayer =
+                exoPlayerManager.acquirePlayer(playerId = item.id, mediaItem = mediaItem)?.player
             postContentVideoItemBinding.postContentVideoView.player = exoPlayer
         }
 
@@ -234,12 +229,12 @@ class PostContentAdapter(
             val item = items[position] as PostContentItem.Video
             exoPlayer?.stop()
             postContentVideoItemBinding.postContentVideoView.player = null
-            exoPlayerManager.releaseResource(id = item.id)
+            exoPlayerManager.releasePlayer(playerId = item.id)
             exoPlayer = null
         }
 
         private fun updateMuteButtonVisibility() {
-            val isMuted = exoPlayerManager.isMuted()
+            val isMuted = exoPlayerManager.areAllPlayersMuted()
             postContentVideoItemBinding.mutePlayerBtn.visibility =
                 if (isMuted) View.GONE else View.VISIBLE
             postContentVideoItemBinding.unMutePlayerBtn.visibility =
