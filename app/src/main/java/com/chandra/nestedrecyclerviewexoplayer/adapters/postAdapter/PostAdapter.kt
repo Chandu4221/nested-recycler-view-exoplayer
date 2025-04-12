@@ -1,7 +1,6 @@
 package com.chandra.nestedrecyclerviewexoplayer.adapters.postAdapter
 
 import android.graphics.Rect
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,81 +22,18 @@ class PostAdapter(
     // TAG
     private val TAG = this::class.java.simpleName
 
+    // WHAT PERCENTAGE OF VIEW SHOULD BE VISIBLE
+    private val visibilityThreshold: Float = 0.70f
+
     // SCROLL LISTENER
     private val postAdapterScrollListener = object : RecyclerView.OnScrollListener() {
-        private val visibilityThreshold: Float = 0.70f
-        private fun checkVisibleItems(recyclerView: RecyclerView) {
-            for (i in 0 until recyclerView.childCount) {
-                val child = recyclerView.getChildAt(i)
-                val position = recyclerView.getChildAdapterPosition(child)
-                if (position != RecyclerView.NO_POSITION) {
-                    val viewHolder =
-                        recyclerView.findViewHolderForAdapterPosition(position)
-                    when (viewHolder) {
-                        is PostViewHolder -> {
-                            // IF POST VIEW HOLDER IS VISIBLE 70%
-                            val isVisible = isViewAtLeastPercentVisible(child, visibilityThreshold)
-                            val childViewHolder = viewHolder.getChildViewHolder()
-                            if (isVisible) {
-                                when (childViewHolder) {
-                                    is PostContentAdapter.PostContentImageViewHolder -> {}
-                                    is PostContentAdapter.PostContentVideoViewHolder -> {
-                                        childViewHolder.startPlayback()
-                                    }
-                                }
-                            } else {
-                                when (childViewHolder) {
-                                    is PostContentAdapter.PostContentImageViewHolder -> {}
-                                    is PostContentAdapter.PostContentVideoViewHolder -> {
-                                        childViewHolder.pausePlayback()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        private fun isViewAtLeastPercentVisible(view: View, percent: Float): Boolean {
-            val visibleRect = Rect()
-            view.getLocalVisibleRect(visibleRect)
-            val viewHeight = view.height
-            val visibleHeight = visibleRect.height().toFloat()
-
-            return visibleHeight / viewHeight >= percent
-        }
-
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
             super.onScrollStateChanged(recyclerView, newState)
-            /**********
-            // LAYOUT MANAGER
-            val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
-            // FULLY VISIBLE ITEM
-            // FIRST COMPLETE VISIBLE ITEM
-            val firstVisibleItemPosition =
-            layoutManager?.findFirstCompletelyVisibleItemPosition()
-            val lastVisibleItemPosition =
-            layoutManager?.findLastCompletelyVisibleItemPosition()
-            val totalItemCount = recyclerView.layoutManager?.itemCount
-            if (firstVisibleItemPosition == lastVisibleItemPosition && firstVisibleItemPosition != RecyclerView.NO_POSITION) {
-            firstVisibleItemPosition?.let { firstVisibleItemPos ->
-            // GET VIEW HOLDER AT THE VISIBLE ITEM POSITION
-            // GET VIEW HOLDER AT THE VISIBLE ITEM POSITION
-            val viewHolder =
-            recyclerView.findViewHolderForAdapterPosition(firstVisibleItemPos)
-            when (viewHolder) {
-            is PostViewHolder -> {}
-            }
-            }
-            }
-             ************/
             when (newState) {
                 RecyclerView.SCROLL_STATE_IDLE -> {
                     checkVisibleItems(recyclerView)
                 }
             }
-
         }
     }
 
@@ -119,6 +55,12 @@ class PostAdapter(
     override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
         super.onAttachedToRecyclerView(recyclerView)
         recyclerView.addOnScrollListener(postAdapterScrollListener)
+        // START PLAYBACK FOR THE FIRST VIDEO
+        recyclerView.post {
+            if (recyclerView.isAttachedToWindow) {
+                checkVisibleItems(recyclerView)
+            }
+        }
     }
 
     override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
@@ -134,7 +76,7 @@ class PostAdapter(
         when (childViewHolder) {
             is PostContentAdapter.PostContentImageViewHolder -> {}
             is PostContentAdapter.PostContentVideoViewHolder -> {
-                if (childPosition != null && childPosition != RecyclerView.NO_POSITION) {
+                if (childPosition != null) {
                     childViewHolder.bindPlayer(childPosition)
                 }
             }
@@ -149,7 +91,7 @@ class PostAdapter(
         when (childViewHolder) {
             is PostContentAdapter.PostContentImageViewHolder -> {}
             is PostContentAdapter.PostContentVideoViewHolder -> {
-                if (childPosition != null && childPosition != RecyclerView.NO_POSITION) {
+                if (childPosition != null) {
                     childViewHolder.unbindPlayer(childPosition)
                 }
             }
@@ -162,6 +104,59 @@ class PostAdapter(
         val diffResult = DiffUtil.calculateDiff(diffCallback)
         items = newItems
         diffResult.dispatchUpdatesTo(this)
+    }
+
+    // FUNCTION TO CHECK THE VIEW VISIBILITY BASED ON PERCENTAGE
+    // THAT IS IS VIEW 70% VISIBLE
+    private fun isViewAtLeastPercentVisible(view: View, percent: Float): Boolean {
+        val visibleRect = Rect()
+        view.getLocalVisibleRect(visibleRect)
+        val viewHeight = view.height
+        val visibleHeight = visibleRect.height().toFloat()
+        return visibleHeight / viewHeight >= percent
+    }
+
+    // FUNCTION TO CHECK THE VISIBLE ITEMS
+    // AND CONTROL THE VIDE PLAYBACK
+    private fun checkVisibleItems(recyclerView: RecyclerView) {
+        for (i in 0 until recyclerView.childCount) {
+            // FIND THE VIEW IN THE RECYCLER VIEW AT INDEX i
+            val cardView = recyclerView.getChildAt(i)
+            // FIND THE ADAPTER POSITION OF THE VIEW
+            val cardViewAdapterPosition = recyclerView.getChildAdapterPosition(cardView)
+            // IF ADAPTER POSITION IS NOT -1
+            if (cardViewAdapterPosition != RecyclerView.NO_POSITION) {
+                // FIND THE VIEW HOLDER AT THAT POSITION
+                val viewHolderAtPosition =
+                    recyclerView.findViewHolderForAdapterPosition(cardViewAdapterPosition)
+                // IF VIEW HOLDER IS POST VIEW HOLDER
+                when (viewHolderAtPosition) {
+                    is PostViewHolder -> {
+                        val childViewHolder = viewHolderAtPosition.getChildViewHolder()
+                        // IF PARENT VIEW HOLDER IS VISIBLE AT LEAST 70%
+                        val isVisible = isViewAtLeastPercentVisible(
+                            viewHolderAtPosition.itemView,
+                            visibilityThreshold
+                        )
+                        if (isVisible) {
+                            when (childViewHolder) {
+                                is PostContentAdapter.PostContentImageViewHolder -> {}
+                                is PostContentAdapter.PostContentVideoViewHolder -> {
+                                    childViewHolder.startPlayback()
+                                }
+                            }
+                        } else {
+                            when (childViewHolder) {
+                                is PostContentAdapter.PostContentImageViewHolder -> {}
+                                is PostContentAdapter.PostContentVideoViewHolder -> {
+                                    childViewHolder.pausePlayback()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // VIEW HOLDER CLASS

@@ -8,7 +8,7 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingBottom="12dp">
         <!-- POST TOP SECTION -->
@@ -66,34 +66,39 @@
                 app:iconTint="?attr/colorOnSurface" />
         </LinearLayout>
         <!-- POST CONTENT -->
-        <RelativeLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="300dp">
-            <!-- THIS IMAGE RECYCLER VIEW IS ADJUSTED BASED ON  IMAGE HEIGHT DISPLAYED , DO NOT MODIFY -->
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/post_content_recycler_view"
+            android:layout_weight="1"
+            android:layout_height="0dp">
+            <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="350dp" />
+                android:layout_height="match_parent">
+                <!-- THIS IMAGE RECYCLER VIEW IS ADJUSTED BASED ON  IMAGE HEIGHT DISPLAYED , DO NOT MODIFY -->
 
-            <TextView
-                android:id="@+id/post_counter"
-                style="@style/TextAppearance.MaterialComponents.Caption"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentTop="true"
-                android:layout_alignParentEnd="true"
-                android:layout_gravity="top|end"
-                android:layout_marginTop="4dp"
-                android:layout_marginEnd="4dp"
-                android:background="@color/black"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="2dp"
-                android:text="1/3"
-                android:textColor="@color/white" />
-        </RelativeLayout>
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/post_content_recycler_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:minHeight="350dp" />
+
+                <TextView
+                    android:id="@+id/post_counter"
+                    style="@style/TextAppearance.MaterialComponents.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentTop="true"
+                    android:layout_alignParentEnd="true"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@color/black"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="2dp"
+                    android:text="1/3"
+                    android:textColor="@color/white" />
+            </RelativeLayout>
+        </LinearLayout>
         <!-- POST ACTIONS -->
         <LinearLayout
             android:layout_width="match_parent"
